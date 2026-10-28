@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stock Scanner</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f6cbd">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="html5-qrcode.min.js"></script>
+<style>
+:root{
+  --bg:#f3f3f3; --nav:#eaeaea; --card:#ffffff; --card2:#f7f7f7; --text:#1a1a1a; --muted:#616161; --line:#e0e0e0;
+  --accent:#0f6cbd; --accent-h:#115ea3; --accent-t:#ffffff;
+  --ok:#0e700e; --okbg:#dff6dd; --warn:#8a5300; --warnbg:#fff4ce; --bad:#b52a1c; --badbg:#fde7e9;
+  --in:#0e700e; --out:#b52a1c; --shadow:0 1px 4px rgba(0,0,0,.10);
+  --font:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#1f1f1f; --nav:#272727; --card:#2c2c2c; --card2:#333333; --text:#f5f5f5; --muted:#adadad; --line:#404040;
+    --accent:#60cdff; --accent-h:#4cc2f5; --accent-t:#00263d; --ok:#6ccb5f; --okbg:#1f3a1f; --warn:#fce100; --warnbg:#43391a;
+    --bad:#ff99a4; --badbg:#47282b; --in:#6ccb5f; --out:#ff99a4; --shadow:0 1px 4px rgba(0,0,0,.5); }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.45 var(--font);background:var(--bg);color:var(--text);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:220px 1fr;height:100vh}
+/* navigation */
+nav{background:var(--nav);padding:14px 10px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 10px 16px;font-weight:600;font-size:15px}
+.brand svg{width:26px;height:26px;color:var(--accent)}
+.nav-btn{display:flex;align-items:center;gap:12px;border:0;background:none;padding:10px 12px;border-radius:6px;cursor:pointer;text-align:left;position:relative}
+.nav-btn svg{width:18px;height:18px;flex:none}
+.nav-btn:hover{background:rgba(127,127,127,.15)}
+.nav-btn.on{background:rgba(127,127,127,.22);font-weight:600}
+.nav-btn.on::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:3px;background:var(--accent)}
+.nav-foot{margin-top:auto;padding:10px;font-size:12px;color:var(--muted)}
+.nav-foot.warn{color:var(--warn)}
+/* pages */
+main{overflow:auto;padding:22px 28px}
+.page[hidden]{display:none}
+h1{font-size:26px;font-weight:600;margin:0 0 16px}
+h2{font-size:15px;font-weight:600;margin:0 0 10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px;box-shadow:var(--shadow)}
+.lbl{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
+input[type=text],input[type=number],input[type=date],input[type=search],select,textarea{
+  width:100%;padding:7px 10px;border:1px solid var(--line);border-bottom:2px solid #8a8a8a;border-radius:5px;background:var(--card);outline:none}
+input:focus,select:focus,textarea:focus{border-bottom-color:var(--accent)}
+textarea{resize:vertical;min-height:140px;font-family:Consolas,monospace}
+.btn{border:1px solid var(--line);background:var(--card);padding:7px 14px;border-radius:5px;cursor:pointer}
+.btn:hover{background:var(--card2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-t)}
+.btn.primary:hover{background:var(--accent-h)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:3px 9px;font-size:12px}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.row>*{flex:1;min-width:120px}
+.btns{margin-top:14px}
+.btns>*{flex:none}
+.chk{display:flex;align-items:center;gap:8px;margin-top:10px;cursor:pointer}
+.chk input{width:16px;height:16px}
+/* scan page */
+.scan-grid{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:18px;align-items:start}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--card2);padding:12px 8px;cursor:pointer;font-weight:600}
+.seg button.on.in{background:var(--in);color:#fff}
+.seg button.on.out{background:var(--out);color:#fff}
+.scan-input{font-size:20px!important;padding:12px 12px!important;font-family:Consolas,monospace}
+.result{min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:6px;margin-bottom:18px;border-left:6px solid var(--line)}
+.result.ok-in{border-left-color:var(--in);background:var(--okbg)}
+.result.ok-out{border-left-color:var(--warn);background:var(--warnbg)}
+.result.err{border-left-color:var(--bad);background:var(--badbg)}
+.result .big{font-size:22px;font-weight:600}
+.result .sub{color:var(--muted)}
+.shelf-pill{display:inline-block;background:var(--card);border:2px solid var(--accent);color:var(--text);border-radius:8px;padding:2px 12px;font-weight:700;font-size:20px;font-family:Consolas,monospace}
+.result .meta{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:4px}
+.scan-bar{display:flex;gap:8px;align-items:stretch}
+.scan-bar input{flex:1}
+.scan-cam-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0 14px;font-weight:600;white-space:nowrap;flex:none}
+.scan-cam-btn svg{width:18px;height:18px}
+.scan-big-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:10px;padding:12px 16px;font-size:15px;font-weight:600;border-radius:6px;cursor:pointer;transition:all .15s ease}
+.scan-big-btn.in{background:var(--okbg);border:2px solid var(--ok);color:var(--ok)}
+.scan-big-btn.in:hover{background:var(--ok);color:#fff}
+.scan-big-btn.out{background:var(--badbg);border:2px solid var(--bad);color:var(--bad)}
+.scan-big-btn.out:hover{background:var(--bad);color:#fff}
+.scan-big-btn svg{width:20px;height:20px;flex:none}
+/* camera scanner modal */
+.cam-modal-container{width:min(620px,100%)}
+.cam-modal{display:flex;flex-direction:column;gap:12px}
+.cam-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.cam-head h2{margin:0;font-size:18px}
+.cam-head .seg{width:220px}
+.cam-head .seg button{padding:6px 8px;font-size:13px}
+.cam-view-wrap{position:relative;background:#000;border-radius:8px;overflow:hidden;min-height:260px;max-height:360px;display:flex;align-items:center;justify-content:center;border:1px solid var(--line)}
+#camReader{width:100%!important;border:none!important}
+#camReader video{width:100%!important;height:100%!important;max-height:360px;object-fit:cover;border-radius:6px;display:block}
+.cam-reticle{position:absolute;inset:15% 12%;border:2px dashed rgba(255,255,255,0.75);border-radius:10px;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,0.35);transition:border-color .2s}
+.cam-laser{position:absolute;left:0;right:0;height:2px;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:laserScan 2s infinite ease-in-out}
+@keyframes laserScan{0%{top:5%;opacity:.8}50%{top:95%;opacity:1}100%{top:5%;opacity:.8}}
+.cam-loading-msg{position:absolute;color:#fff;text-align:center;padding:20px;font-size:14px;background:rgba(0,0,0,.6);border-radius:6px}
+.cam-ctrls{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.cam-feedback{min-height:42px;padding:8px 12px;border-radius:6px;font-size:13px;display:flex;align-items:center;background:var(--card2);border:1px solid var(--line);line-height:1.35}
+.cam-feedback.ok-in{background:var(--okbg);color:var(--ok);border-color:var(--ok)}
+.cam-feedback.ok-out{background:var(--warnbg);color:var(--warn);border-color:var(--warn)}
+.cam-feedback.err{background:var(--badbg);color:var(--bad);border-color:var(--bad)}
+.cam-foot{display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+/* tables */
+.tbl-wrap{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:calc(100vh - 230px)}
+table{border-collapse:collapse;width:100%}
+th,td{padding:8px 12px;text-align:left;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--card2);font-weight:600;cursor:pointer;user-select:none;z-index:1}
+th.nosort{cursor:default}
+tr:hover td{background:rgba(127,127,127,.07)}
+td.num,th.num{text-align:right}
+td.act{text-align:right}
+td.wrap{white-space:normal;min-width:200px}
+.chip{display:inline-block;padding:1px 9px;border-radius:10px;font-size:12px;font-weight:600}
+.chip.OK{background:var(--okbg);color:var(--ok)}
+.chip.REORDER{background:var(--warnbg);color:var(--warn)}
+.chip.NEGATIVE{background:var(--badbg);color:var(--bad)}
+.chip.IN{background:var(--okbg);color:var(--ok)}
+.chip.OUT{background:var(--badbg);color:var(--bad)}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+.toolbar .grow{flex:1;min-width:180px}
+.toolbar select,.toolbar input[type=date]{width:auto}
+.empty{padding:36px;text-align:center;color:var(--muted)}
+code,.mono{font-family:Consolas,monospace}
+/* data page */
+.data-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.data-grid p{color:var(--muted);margin:0 0 12px}
+/* modal + toast */
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.modal{background:var(--card);border-radius:10px;padding:22px;width:min(560px,100%);max-height:92vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.modal.wide{width:min(760px,100%)}
+.modal h2{font-size:18px;margin-bottom:6px}
+.modal .foot{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.bc-box{background:#fff;color:#000;border:1px solid var(--line);border-radius:6px;padding:14px;text-align:center}
+.bc-box svg{width:100%;height:110px;display:block}
+.bc-box .c{font:700 18px Consolas,monospace;margin-top:6px}
+.bc-box .n{font-size:14px}
+.err-text{color:var(--bad);font-size:12px;margin-top:4px;min-height:16px}
+#toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:90}
+.toast{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:6px;padding:10px 14px;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:360px}
+.toast.error{border-left-color:var(--bad)} .toast.ok{border-left-color:var(--ok)}
+.list{max-height:200px;overflow:auto;font-family:Consolas,monospace;font-size:12px;background:var(--card2);border-radius:6px;padding:8px;margin-top:8px}
+/* print labels */
+#printArea{display:none}
+@media print{
+  body{overflow:visible;background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:flex!important;flex-wrap:wrap;gap:2mm;color:#000}
+  .plbl{box-sizing:border-box;border:.2mm dashed #888;padding:2mm;display:flex;flex-direction:column;overflow:hidden;break-inside:avoid;page-break-inside:avoid;background:#fff}
+  .plbl .bc{flex:1;min-height:0}
+  .plbl .bc svg{width:100%;height:100%;display:block}
+  .plbl .pc{font:700 9pt Consolas,monospace;text-align:center;line-height:1.1;margin-top:1mm}
+  .plbl .pn{font:8pt "Segoe UI",Arial,sans-serif;text-align:center;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .plbl .ps{font:700 8pt "Segoe UI",Arial,sans-serif;text-align:center;line-height:1.1}
+  @page{margin:8mm}
+}
+@media (max-width:900px){
+  .app{grid-template-columns:62px 1fr} .nav-btn span,.brand span,.nav-foot{display:none}
+  .scan-grid{grid-template-columns:1fr} main{padding:16px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 5v14M7 5v14M11 5v14M14 5v14M18 5v14M20.5 5v14"/></svg>
+      <span>Stock Scanner</span>
+    </div>
+    <button class="nav-btn on" data-page="scan" title="Alt+1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg><span>Scan</span></button>
+    <button class="nav-btn" data-page="articles" title="Alt+2">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/></svg><span>Articles</span></button>
+    <button class="nav-btn" data-page="history" title="Alt+3">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>History</span></button>
+    <button class="nav-btn" data-page="data" title="Alt+4">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg><span>Data &amp; backup</span></button>
+    <div class="nav-foot" id="navFoot"></div>
+  </nav>
+
+  <main>
+    <!-- SCAN -->
+    <section class="page" id="page-scan">
+      <h1>Scan</h1>
+      <div class="scan-grid">
+        <div class="card">
+          <div class="seg" id="modeSeg">
+            <button class="on in" data-mode="IN">＋ Add stock</button>
+            <button class="out" data-mode="OUT">− Remove stock</button>
+          </div>
+          <label class="lbl" for="scanInput">Scan a barcode or QR code</label>
+          <div class="scan-bar">
+            <input id="scanInput" class="scan-input" type="text" placeholder="Click here, then scan or type…" autocomplete="off" spellcheck="false">
+            <button type="button" class="btn scan-cam-btn" id="camScanBtn" title="Scan with camera (Alt+S)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <span>Camera</span>
+            </button>
+          </div>
+          <button type="button" class="btn scan-big-btn in" id="mainScanCamBtn" title="Open camera scanner (Alt+S)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="M12 9v6M9 12h6"/></svg>
+            <span id="mainScanCamBtnText">📷 Scan Barcode / QR Code (Add stock)</span>
+          </button>
+          <div class="row">
+            <div><label class="lbl" for="qtyInput">Quantity</label><input id="qtyInput" type="number" min="0" step="any" value="1"></div>
+            <div><label class="lbl" for="dateInput">Date</label><input id="dateInput" type="date"></div>
+          </div>
+          <label class="chk"><input type="checkbox" id="askQty"> Ask for the quantity after each scan</label>
+          <label class="chk"><input type="checkbox" id="soundOn" checked> Sound</label>
+          <div class="row btns">
+            <button class="btn" id="pasteListBtn">Paste a list…</button>
+            <button class="btn" id="undoBtn">Undo last</button>
+          </div>
+        </div>
+        <div>
+          <div class="card result" id="result"></div>
+          <div class="card"><h2>Recent activity</h2><div id="recent"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ARTICLES -->
+    <section class="page" id="page-articles" hidden>
+      <h1>Articles</h1>
+      <div class="toolbar">
+        <input type="search" id="artSearch" class="grow" placeholder="Search code, designation, shelf, category…">
+        <select id="artFilter"><option value="">All statuses</option><option value="OK">OK</option><option value="REORDER">Reorder</option><option value="NEGATIVE">Negative</option></select>
+        <button class="btn primary" id="newArtBtn">＋ New article</button>
+        <button class="btn" id="printLblBtn">Print labels</button>
+      </div>
+      <div class="tbl-wrap" id="artWrap"></div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="page" id="page-history" hidden>
+      <h1>History</h1>
+      <div class="toolbar">
+        <input type="search" id="hisSearch" class="grow" placeholder="Search code or designation…">
+        <select id="hisType"><option value="">IN and OUT</option><option value="IN">IN only</option><option value="OUT">OUT only</option></select>
+        <input type="date" id="hisFrom" title="From"><input type="date" id="hisTo" title="To">
+      </div>
+      <div class="tbl-wrap" id="hisWrap"></div>
+    </section>
+
+    <!-- DATA -->
+    <section class="page" id="page-data" hidden>
+      <h1>Data &amp; backup</h1>
+      <div class="data-grid">
+        <div class="card"><h2>Export to Excel</h2><p>Creates a .xlsx file with all articles (with current stock) and the full movement history.</p><button class="btn primary" id="expXlsx">Export Excel file</button></div>
+        <div class="card"><h2>Import from Excel</h2><p>Reads a .xlsx file with sheets named Articles, SCAN IN, SCAN OUT or Movements. Works with your Stock_Scanner.xlsx workbook.</p><button class="btn" id="impXlsx">Choose Excel file…</button><input type="file" id="impXlsxFile" accept=".xlsx" hidden></div>
+        <div class="card"><h2>Backup</h2><p>Saves a copy of all data to a file. Do this regularly and keep the file on another drive or USB key.</p><button class="btn primary" id="bkpBtn">Save a backup</button> <span id="bkpInfo" class="sub"></span></div>
+        <div class="card"><h2>Restore a backup</h2><p>Replaces ALL current data with the content of a backup file.</p><button class="btn" id="rstBtn">Choose backup file…</button><input type="file" id="rstFile" accept=".json,application/json" hidden></div>
+        <div class="card"><h2>Erase all data</h2><p>Deletes every article and movement from this computer. Save a backup first.</p><button class="btn danger" id="eraseBtn">Erase everything…</button></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="toasts"></div>
+<div id="printArea"></div>
+
+<script>
+"use strict";
+/* ===================== helpers ===================== */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pad = n => String(n).padStart(2, "0");
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const fmtDate = iso => { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; };
+const r3 = n => Math.round(n * 1000) / 1000;
+const fmtNum = n => String(r3(n));
+const isIso = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
+function serialToIso(n) { const d = new Date(Math.round((n - 25569) * 86400000)); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`; }
+function isoToSerial(iso) { const [y, m, d] = iso.split("-").map(Number); return Math.round(Date.UTC(y, m - 1, d) / 86400000) + 25569; }
+function parseAnyDate(v) {
+  if (v == null || v === "") return "";
+  if (typeof v === "number") return v > 20000 && v < 80000 ? serialToIso(v) : "";
+  const s = String(v).trim(); let m;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+  if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/))) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+  return "";
+}
+function download(blob, name) {
+  if (window.AndroidBridge && window.AndroidBridge.saveFile) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result || "").split(",")[1] || "";
+      window.AndroidBridge.saveFile(base64, name, blob.type || "application/octet-stream");
+    };
+    reader.readAsDataURL(blob);
+    return;
+  }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function toast(msg, kind = "") {
+  const t = document.createElement("div"); t.className = "toast " + kind; t.textContent = msg;
+  $("#toasts").appendChild(t); setTimeout(() => t.remove(), kind === "error" ? 7000 : 3500);
+}
+
+/* ===================== data store ===================== */
+const KEY = "stockscanner.v1";
+let storageOK = true;
+function blank() { return { v: 1, articles: [], movements: [], settings: {}, nextId: 1 }; }
+function loadDb() {
+  try {
+    const s = localStorage.getItem(KEY);
+    if (s) { const d = JSON.parse(s); if (Array.isArray(d.articles) && Array.isArray(d.movements)) { d.settings = d.settings || {}; d.nextId = d.nextId || (d.movements.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1); return d; } }
+  } catch (e) { storageOK = false; }
+  return blank();
+}
+let db = loadDb();
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(db)); storageOK = true; }
+  catch (e) { storageOK = false; toast("Could not save data on this computer! Save a backup now.", "error"); }
+}
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch (e) {}
+
+function findArticle(code) {
+  const c = String(code).trim(); if (!c) return null;
+  let a = db.articles.find(x => x.code === c);
+  if (!a) { const low = c.toLowerCase(); const m = db.articles.filter(x => x.code.toLowerCase() === low); if (m.length === 1) a = m[0]; }
+  return a || null;
+}
+function stockOf(code) {
+  const a = db.articles.find(x => x.code === code); if (!a) return 0;
+  let s = a.opening || 0; for (const m of db.movements) if (m.code === code) s += m.type === "IN" ? m.qty : -m.qty; return r3(s);
+}
+function allTotals() {
+  const map = new Map(); for (const a of db.articles) map.set(a.code, { inn: 0, out: 0 });
+  for (const m of db.movements) { const t = map.get(m.code); if (t) { if (m.type === "IN") t.inn += m.qty; else t.out += m.qty; } }
+  for (const a of db.articles) { const t = map.get(a.code); t.inn = r3(t.inn); t.out = r3(t.out); t.stock = r3((a.opening || 0) + t.inn - t.out); }
+  return map;
+}
+const statusOf = (a, stock) => stock < 0 ? "NEGATIVE" : stock <= (a.min || 0) ? "REORDER" : "OK";
+function addMovement(code, type, qty, date) {
+  const m = { id: db.nextId++, code, type, qty: r3(qty), date: date || today(), ts: Date.now() };
+  db.movements.push(m); return m;
+}
+
+/* ===================== Code 128 ===================== */
+const W128 = ("212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 " +
+"123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 " +
+"232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 " +
+"313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 " +
+"111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 " +
+"111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 " +
+"114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 2331112").split(" ");
+const B128 = W128.map(w => { let o = "", bar = true; for (const d of w) { o += (bar ? "1" : "0").repeat(+d); bar = !bar; } return o; });
+function c128ok(t) { if (!t || t.length > 40) return false; for (const ch of t) { const c = ch.charCodeAt(0); if (c < 32 || c > 126) return false; } return true; }
+function c128vals(t) { // symbol values, start symbol first; uses digit pairs (set C) for long digit runs to keep the barcode short
+  const dig = k => { let n = 0; while (k + n < t.length && t[k + n] >= "0" && t[k + n] <= "9") n++; return n; };
+  const out = []; let i = 0, set = dig(0) >= 4 ? "C" : "B"; out.push(set === "C" ? 105 : 104);
+  while (i < t.length) {
+    const r = dig(i);
+    if (set === "C") { if (r >= 2) { out.push(+t.substr(i, 2)); i += 2; } else { out.push(100); set = "B"; } }
+    else if (r >= 6 || (r >= 4 && i + r === t.length)) { out.push(99); set = "C"; }
+    else { out.push(t.charCodeAt(i) - 32); i++; }
+  }
+  return out;
+}
+function c128bits(t) {
+  const v = c128vals(t); let sum = v[0]; for (let k = 1; k < v.length; k++) sum += k * v[k];
+  return v.map(x => B128[x]).join("") + B128[sum % 103] + B128[106];
+}
+function barcodeSVG(t, quiet = 10) {
+  const bits = c128bits(t), W = bits.length + quiet * 2; let d = "", i = 0;
+  while (i < bits.length) { if (bits[i] === "1") { let j = i; while (j < bits.length && bits[j] === "1") j++; d += `M${i + quiet} 0h${j - i}v1h-${j - i}z`; i = j; } else i++; }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 1" preserveAspectRatio="none" shape-rendering="crispEdges"><rect width="${W}" height="1" fill="#fff"/><path d="${d}" fill="#000"/></svg>`;
+}
+function labelCanvas(a, mod = 3) {
+  const bits = c128bits(a.code), q = 10, W = (bits.length + q * 2) * mod, bh = 120, padY = 14;
+  const c = document.createElement("canvas"); c.width = Math.max(W, 340); c.height = padY + bh + 90;
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
+  const ox = Math.round((c.width - W) / 2) + q * mod; g.fillStyle = "#000";
+  for (let i = 0; i < bits.length; i++) if (bits[i] === "1") g.fillRect(ox + i * mod, padY, mod, bh);
+  g.textAlign = "center"; g.fillStyle = "#000";
+  g.font = "bold 24px Consolas, monospace"; g.fillText(a.code, c.width / 2, padY + bh + 30);
+  g.font = "18px 'Segoe UI', Arial, sans-serif"; let n = a.designation || "";
+  while (n.length > 3 && g.measureText(n).width > c.width - 20) n = n.slice(0, -2);
+  g.fillText(n === (a.designation || "") ? n : n + "…", c.width / 2, padY + bh + 56);
+  if (a.shelf) { g.font = "bold 17px 'Segoe UI', Arial, sans-serif"; g.fillText("Shelf: " + a.shelf, c.width / 2, padY + bh + 80); }
+  return c;
+}
+
+/* ===================== modal helpers ===================== */
+let modalCount = 0;
+function openModal(html, cls = "") {
+  const back = document.createElement("div"); back.className = "modal-back";
+  back.innerHTML = `<div class="modal ${cls}" role="dialog" aria-modal="true">${html}</div>`;
+  document.body.appendChild(back); modalCount++;
+  const close = () => { if (!back.isConnected) return; back.remove(); modalCount--; setTimeout(focusScan, 30); };
+  back.addEventListener("mousedown", e => { if (e.target === back && back.dataset.sticky !== "1") close(); });
+  back._close = close; return { el: back.firstElementChild, back, close };
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") { const m = $$(".modal-back").pop(); if (m && m._close) { m._close(); m.dispatchEvent(new Event("dismiss")); } } });
+function confirmBox({ title, message, ok = "OK", cancel = "Cancel", danger = false }) {
+  return new Promise(res => {
+    const m = openModal(`<h2>${esc(title)}</h2><div>${message}</div><div class="foot"><button class="btn" data-x="0">${esc(cancel)}</button><button class="btn ${danger ? "danger" : "primary"}" data-x="1" id="cfOk">${esc(ok)}</button></div>`);
+    let done = false; const fin = v => { if (done) return; done = true; m.close(); res(v); };
+    m.el.addEventListener("click", e => { const b = e.target.closest("[data-x]"); if (b) fin(b.dataset.x === "1"); });
+    m.back.addEventListener("dismiss", () => fin(false)); m.back.addEventListener("mousedown", e => { if (e.target === m.back) fin(false); });
+    $("#cfOk", m.el).focus();
+  });
+}
+function infoBox(title, html) {
+  const m = openModal(`<h2>${esc(title)}</h2><div>${html}</div><div class="foot"><button class="btn primary" id="infoOk">OK</button></div>`);
+  $("#infoOk", m.el).onclick = m.close; $("#infoOk", m.el).focus();
+}
+
+/* ===================== article dialog ===================== */
+function nextCode() { let n = 0; for (const a of db.articles) { const m = a.code.match(/^ART-(\d+)$/); if (m) n = Math.max(n, +m[1]); } return "ART-" + String(n + 1).padStart(4, "0"); }
+function articleDialog(init = {}, isNew = true) {
+  return new Promise(res => {
+    const a = Object.assign({ code: "", designation: "", shelf: "", category: "", opening: 0, min: 0, added: today() }, init);
+    const cats = [...new Set(db.articles.map(x => x.category).filter(Boolean))].sort();
+    const m = openModal(`
+      <h2>${isNew ? "New article" : "Edit article"}</h2>
+      <label class="lbl">Code (barcode / QR) *</label>
+      <div class="row" style="align-items:center"><input type="text" id="fCode" value="${esc(a.code)}" autocomplete="off" style="flex:1"><button type="button" class="btn" id="fScanCam" style="flex:none" title="Scan code with camera">📷 Scan</button>${isNew ? '<button class="btn" id="fGen" style="flex:none">Generate</button>' : ""}</div>
+      <div class="err-text" id="eCode"></div>
+      <label class="lbl">Designation *</label><input type="text" id="fDes" value="${esc(a.designation)}" autocomplete="off">
+      <div class="grid2">
+        <div><label class="lbl">Shelf location</label><input type="text" id="fShelf" value="${esc(a.shelf)}" placeholder="e.g. A-01-2" autocomplete="off"></div>
+        <div><label class="lbl">Category</label><input type="text" id="fCat" value="${esc(a.category)}" list="catList" autocomplete="off"><datalist id="catList">${cats.map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
+        <div><label class="lbl">Opening stock</label><input type="number" step="any" id="fOpen" value="${a.opening}"></div>
+        <div><label class="lbl">Minimum stock</label><input type="number" step="any" min="0" id="fMin" value="${a.min}"></div>
+        <div><label class="lbl">Date added</label><input type="date" id="fAdded" value="${esc(a.added)}"></div>
+      </div>
+      <div class="foot"><button class="btn" data-x="0">Cancel</button><button class="btn primary" id="fSave">Save</button></div>`);
+    const q = s => $(s, m.el); let done = false;
+    const fin = v => { if (done) return; done = true; m.close(); res(v); };
+    m.back.dataset.sticky = "1"; m.back.addEventListener("dismiss", () => fin(null));
+    m.el.querySelector("[data-x]").onclick = () => fin(null);
+    if (isNew && q("#fGen")) q("#fGen").onclick = () => { q("#fCode").value = nextCode(); q("#fCode").dispatchEvent(new Event("input")); };
+    if (q("#fScanCam")) q("#fScanCam").onclick = () => openCameraScanner({ forTargetInput: q("#fCode") });
+    const checkCode = () => {
+      const c = q("#fCode").value.trim(); let msg = "";
+      if (c && !c128ok(c)) msg = "This code cannot be printed as a barcode (use plain characters, max 40).";
+      const dup = db.articles.find(x => x.code === c && x.code !== init.code); if (dup) msg = "This code already exists: " + dup.designation;
+      q("#eCode").textContent = msg; return !dup;
+    };
+    q("#fCode").addEventListener("input", checkCode);
+    const submit = () => {
+      const code = q("#fCode").value.trim(), des = q("#fDes").value.trim();
+      if (!code) { q("#eCode").textContent = "Code is required."; q("#fCode").focus(); return; }
+      if (!checkCode()) return;
+      if (!des) { q("#fDes").focus(); toast("Designation is required.", "error"); return; }
+      fin({ code, designation: des, shelf: q("#fShelf").value.trim(), category: q("#fCat").value.trim(),
+        opening: parseFloat(q("#fOpen").value) || 0, min: Math.max(0, parseFloat(q("#fMin").value) || 0), added: q("#fAdded").value || today() });
+    };
+    q("#fSave").onclick = submit;
+    m.el.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT") { e.preventDefault(); submit(); } });
+    setTimeout(() => (a.code && !isNew ? q("#fDes") : q("#fCode")).focus(), 20);
+  });
+}
+
+/* ===================== navigation ===================== */
+let page = "scan";
+function go(p) {
+  page = p; $$(".page").forEach(s => s.hidden = s.id !== "page-" + p);
+  $$(".nav-btn").forEach(b => b.classList.toggle("on", b.dataset.page === p));
+  if (p === "scan") { renderScan(); focusScan(); } else if (p === "articles") renderArticles(); else if (p === "history") renderHistory(); else renderData();
+}
+$$(".nav-btn").forEach(b => b.onclick = () => go(b.dataset.page));
+document.addEventListener("keydown", e => { if (e.altKey && "1234".includes(e.key)) { go(["scan", "articles", "history", "data"][+e.key - 1]); e.preventDefault(); } });
+
+/* ===================== SCAN page ===================== */
+let mode = "IN", dateTouched = false, lastResult = null, beepCtx;
+function beep(ok) {
+  if (!$("#soundOn").checked) return;
+  try { beepCtx = beepCtx || new AudioContext(); const o = beepCtx.createOscillator(), g = beepCtx.createGain(); o.connect(g); g.connect(beepCtx.destination);
+    o.frequency.value = ok ? 880 : 200; g.gain.value = .07; o.start(); o.stop(beepCtx.currentTime + (ok ? .08 : .3)); } catch (e) {}
+}
+function focusScan() {
+  if (page !== "scan" || modalCount > 0) return;
+  const ae = document.activeElement; if (ae && ["qtyInput", "dateInput"].includes(ae.id) && ae !== $("#scanInput")) return;
+  $("#scanInput").focus();
+}
+function setMode(newMode) {
+  mode = newMode;
+  $$("#modeSeg button").forEach(x => x.classList.toggle("on", x.dataset.mode === mode));
+  const mainBtn = $("#mainScanCamBtn");
+  if (mainBtn) {
+    mainBtn.className = "btn scan-big-btn " + (mode === "IN" ? "in" : "out");
+    $("#mainScanCamBtnText").textContent = mode === "IN" ? "📷 Scan Barcode / QR Code (Add stock)" : "📷 Scan Barcode / QR Code (Remove stock)";
+  }
+  focusScan();
+}
+$("#modeSeg").onclick = e => {
+  const b = e.target.closest("button"); if (!b) return;
+  setMode(b.dataset.mode);
+};
+$("#dateInput").value = today();
+$("#dateInput").addEventListener("change", () => { dateTouched = true; });
+$("#askQty").checked = !!db.settings.askQty; $("#soundOn").checked = db.settings.sound !== false;
+$("#askQty").onchange = () => { db.settings.askQty = $("#askQty").checked; save(); focusScan(); };
+$("#soundOn").onchange = () => { db.settings.sound = $("#soundOn").checked; save(); focusScan(); };
+document.addEventListener("click", e => { if (page === "scan" && !e.target.closest("input,button,select,textarea,label,.modal-back")) focusScan(); });
+window.addEventListener("focus", () => setTimeout(focusScan, 50));
+
+$("#scanInput").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return; e.preventDefault();
+  const code = e.target.value.trim(); if (!code) return;
+  if ($("#askQty").checked) { $("#qtyInput").focus(); $("#qtyInput").select(); return; }
+  doScan(code);
+});
+$("#qtyInput").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return; e.preventDefault();
+  const code = $("#scanInput").value.trim(); if (code) doScan(code); else $("#scanInput").focus();
+});
+
+function curDate() { if (!dateTouched) $("#dateInput").value = today(); return $("#dateInput").value || today(); }
+async function doScan(raw, optQty, optType) {
+  const code = (raw || "").trim();
+  const qty = optQty != null ? optQty : parseFloat(String($("#qtyInput").value).replace(",", "."));
+  const date = curDate();
+  const type = optType || mode;
+  $("#scanInput").value = "";
+  if (optQty == null) $("#qtyInput").value = 1;
+  $("#scanInput").focus();
+  if (!(qty > 0)) {
+    showResult({ err: true, title: "Invalid quantity", sub: "Enter a quantity greater than 0." });
+    beep(false);
+    return { ok: false, reason: "Invalid quantity" };
+  }
+  let art = findArticle(code);
+  if (!art) {
+    beep(false);
+    const created = await articleDialog({ code }, true);
+    if (!created) {
+      showResult({ err: true, title: "Unknown code", sub: `${code} is not in the database.` });
+      return { ok: false, reason: "Unknown code" };
+    }
+    db.articles.push(created); save(); art = created; toast("Article created.", "ok");
+  }
+  if (type === "OUT") {
+    const cur = stockOf(art.code);
+    if (cur - qty < 0) {
+      beep(false);
+      const ok = await confirmBox({ title: "Not enough stock", message: `<p><b>${esc(art.designation)}</b><br>Current stock: <b>${fmtNum(cur)}</b>. Removing <b>${fmtNum(qty)}</b> would make the stock negative.</p>`, ok: "Remove anyway", danger: true });
+      if (!ok) {
+        showResult({ err: true, title: "Cancelled", sub: `${art.designation}: nothing was removed (stock ${fmtNum(cur)}).` });
+        return { ok: false, reason: "Cancelled" };
+      }
+    }
+  }
+  const before = stockOf(art.code);
+  const mv = addMovement(art.code, type, qty, date);
+  save();
+  const after = stockOf(art.code);
+  lastResult = { id: mv.id };
+  showResult({ type, art, qty, before, after });
+  beep(true);
+  renderScan();
+  return { ok: true, art, qty, before, after, type };
+}
+
+/* ===================== camera barcode / QR scanner ===================== */
+let lastCameraScanTime = 0, lastCameraScannedText = "";
+async function openCameraScanner(opts = {}) {
+  if (typeof Html5Qrcode === "undefined") {
+    toast("Camera library (html5-qrcode.min.js) was not found in the application folder.", "error");
+    return;
+  }
+  let camMode = opts.fixedMode || mode;
+  const isTargetMode = !!opts.forTargetInput;
+  const modalHtml = `
+    <div class="cam-modal">
+      <div class="cam-head">
+        <h2>${isTargetMode ? "Scan code for article" : "Scan barcode or QR code"}</h2>
+        ${isTargetMode ? "" : `
+          <div class="seg" id="camModalSeg">
+            <button class="${camMode === 'IN' ? 'on in' : 'in'}" data-cmode="IN">＋ Add stock</button>
+            <button class="${camMode === 'OUT' ? 'on out' : 'out'}" data-cmode="OUT">− Remove stock</button>
+          </div>
+        `}
+      </div>
+      <div class="cam-view-wrap">
+        <div id="camReader"></div>
+        <div class="cam-reticle"><div class="cam-laser"></div></div>
+        <div id="camStatusMsg" class="cam-loading-msg">Starting camera…</div>
+      </div>
+      <div class="cam-ctrls">
+        <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:180px">
+          <label class="lbl" style="margin:0" for="camSelect">Camera:</label>
+          <select id="camSelect" style="flex:1;padding:4px 8px;font-size:13px"></select>
+        </div>
+        ${isTargetMode ? "" : `
+          <div style="display:flex;gap:8px;align-items:center">
+            <label class="lbl" style="margin:0" for="camModalQty">Qty:</label>
+            <input type="number" id="camModalQty" min="0" step="any" value="${$("#qtyInput").value || 1}" style="width:75px;padding:4px 8px;font-size:13px">
+          </div>
+        `}
+        <button type="button" class="btn sm" id="camFileBtn" title="Scan from an image file">📁 Image file</button>
+        <input type="file" id="camFileInput" accept="image/*" hidden>
+      </div>
+      <div class="cam-feedback" id="camFeedback">
+        <span class="sub">Align barcode or QR code within the frame…</span>
+      </div>
+      <div class="cam-foot">
+        ${isTargetMode ? '<span></span>' : `
+          <label class="chk" style="margin:0;font-size:13px">
+            <input type="checkbox" id="camContinuous" checked> Keep scanning (continuous)
+          </label>
+        `}
+        <button type="button" class="btn primary" id="camCloseBtn">Done</button>
+      </div>
+    </div>
+  `;
+  const m = openModal(modalHtml, "cam-modal-container");
+  m.back.dataset.sticky = "1";
+  const q = s => $(s, m.el);
+  const feedbackEl = q("#camFeedback");
+  const statusMsgEl = q("#camStatusMsg");
+  const selectEl = q("#camSelect");
+  let scanner = null, isStopping = false;
+
+  const updateCamModeUi = () => {
+    if (isTargetMode) return;
+    const inBtn = q("#camModalSeg button[data-cmode='IN']");
+    const outBtn = q("#camModalSeg button[data-cmode='OUT']");
+    if (inBtn && outBtn) {
+      inBtn.className = camMode === "IN" ? "on in" : "in";
+      outBtn.className = camMode === "OUT" ? "on out" : "out";
+    }
+    setMode(camMode);
+  };
+  if (q("#camModalSeg")) {
+    q("#camModalSeg").onclick = e => {
+      const b = e.target.closest("button"); if (!b) return;
+      camMode = b.dataset.cmode;
+      updateCamModeUi();
+    };
+  }
+
+  const stopCamera = async () => {
+    if (isStopping) return;
+    isStopping = true;
+    if (scanner) {
+      try {
+        if (scanner.isScanning) await scanner.stop();
+        scanner.clear();
+      } catch (err) { console.warn("Camera stop error:", err); }
+      scanner = null;
+    }
+  };
+  const closeScannerModal = async () => {
+    await stopCamera();
+    m.close();
+    focusScan();
+  };
+  q("#camCloseBtn").onclick = closeScannerModal;
+  m.back.addEventListener("dismiss", () => { stopCamera(); });
+
+  const onCodeDetected = async (decodedText) => {
+    const now = Date.now();
+    const code = String(decodedText || "").trim();
+    if (!code) return;
+    if (code === lastCameraScannedText && (now - lastCameraScanTime) < 2000) return;
+    if ((now - lastCameraScanTime) < 1000) return;
+    lastCameraScanTime = now;
+    lastCameraScannedText = code;
+
+    if (isTargetMode) {
+      beep(true);
+      opts.forTargetInput.value = code;
+      opts.forTargetInput.dispatchEvent(new Event("input"));
+      toast("Scanned code: " + code, "ok");
+      await closeScannerModal();
+      return;
+    }
+
+    const qtyVal = parseFloat(String(q("#camModalQty") ? q("#camModalQty").value : $("#qtyInput").value).replace(",", ".")) || 1;
+    const isContinuous = q("#camContinuous") && q("#camContinuous").checked;
+
+    const reticle = q(".cam-reticle");
+    if (reticle) {
+      reticle.style.borderColor = camMode === "IN" ? "var(--ok)" : "var(--warn)";
+      setTimeout(() => { if (reticle) reticle.style.borderColor = "rgba(255,255,255,0.75)"; }, 400);
+    }
+
+    let finalQty = qtyVal;
+    if ($("#askQty").checked) {
+      const art = findArticle(code);
+      const promptTitle = `${camMode === "IN" ? "Add stock" : "Remove stock"} for ${art ? art.designation : code}\nQuantity:`;
+      const userQtyStr = window.prompt(promptTitle, String(qtyVal));
+      if (userQtyStr === null) {
+        feedbackEl.className = "cam-feedback";
+        feedbackEl.innerHTML = `<span class="sub">Scan cancelled.</span>`;
+        return;
+      }
+      finalQty = parseFloat(String(userQtyStr).replace(",", ".")) || 1;
+    }
+
+    const existingArt = findArticle(code);
+    if (!existingArt && scanner && scanner.isScanning) {
+      try { await scanner.stop(); } catch(e){}
+    }
+
+    const res = await doScan(code, finalQty, camMode);
+
+    if (!existingArt) {
+      if (isContinuous && !isStopping) {
+        try { await startWithCamera(selectEl.value || null); } catch(e){}
+      } else {
+        await closeScannerModal();
+        return;
+      }
+    }
+
+    if (res && res.ok) {
+      feedbackEl.className = "cam-feedback " + (res.type === "IN" ? "ok-in" : "ok-out");
+      feedbackEl.innerHTML = `<div><b>${res.type === "IN" ? "＋" : "−"} ${fmtNum(res.qty)} × ${esc(res.art.designation)}</b> (${esc(res.art.code)})<br><span style="font-size:12px">Stock: ${fmtNum(res.before)} → <b>${fmtNum(res.after)}</b>${res.art.shelf ? " &bull; Shelf: <b>" + esc(res.art.shelf) + "</b>" : ""}</span></div>`;
+      if (!isContinuous) {
+        setTimeout(closeScannerModal, 600);
+      }
+    } else {
+      feedbackEl.className = "cam-feedback err";
+      feedbackEl.textContent = res && res.reason ? res.reason : "Could not process scan.";
+    }
+  };
+
+  q("#camFileBtn").onclick = () => q("#camFileInput").click();
+  q("#camFileInput").onchange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      feedbackEl.className = "cam-feedback";
+      feedbackEl.innerHTML = `<span class="sub">Scanning image file…</span>`;
+      const tempScanner = scanner || new Html5Qrcode("camReader");
+      const decoded = await tempScanner.scanFile(file, false);
+      if (decoded) {
+        onCodeDetected(decoded);
+      } else {
+        feedbackEl.className = "cam-feedback err";
+        feedbackEl.textContent = "No barcode or QR code found in the image.";
+        beep(false);
+      }
+    } catch (err) {
+      feedbackEl.className = "cam-feedback err";
+      feedbackEl.textContent = "Could not read barcode from image: " + (err.message || err);
+      beep(false);
+    }
+  };
+
+  const startWithCamera = async (camId) => {
+    statusMsgEl.style.display = "block";
+    statusMsgEl.textContent = "Starting camera…";
+    const config = {
+      fps: 15,
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const w = Math.floor(viewfinderWidth * 0.85);
+        const h = Math.floor(viewfinderHeight * 0.70);
+        return { width: Math.max(w, 200), height: Math.max(h, 140) };
+      }
+    };
+    const camConfig = camId ? { deviceId: { exact: camId } } : { facingMode: "environment" };
+    await scanner.start(
+      camConfig,
+      config,
+      decodedText => onCodeDetected(decodedText),
+      () => {}
+    );
+    statusMsgEl.style.display = "none";
+  };
+
+  try {
+    scanner = new Html5Qrcode("camReader", { verbose: false });
+    const devices = await Html5Qrcode.getCameras().catch(() => []);
+    if (devices && devices.length > 0) {
+      selectEl.innerHTML = devices.map((d, idx) => `<option value="${esc(d.id)}">${esc(d.label || "Camera " + (idx + 1))}</option>`).join("");
+      selectEl.onchange = async () => {
+        const devId = selectEl.value;
+        if (scanner && scanner.isScanning) await scanner.stop();
+        await startWithCamera(devId);
+      };
+    } else {
+      selectEl.innerHTML = `<option value="">Default camera</option>`;
+      selectEl.disabled = true;
+    }
+    const initialCamId = devices.length ? devices[0].id : null;
+    await startWithCamera(initialCamId);
+  } catch (err) {
+    statusMsgEl.style.display = "block";
+    statusMsgEl.innerHTML = `
+      <div style="padding:16px;text-align:center">
+        <p style="color:var(--bad);font-weight:600;margin:0 0 8px">Camera not available</p>
+        <p style="font-size:12px;color:#ccc;margin:0 0 12px">Allow camera access in Windows/Edge permissions, or scan from an image file below.</p>
+        <button type="button" class="btn primary sm" id="camFallbackUploadBtn">📁 Choose image file</button>
+      </div>`;
+    const fBtn = q("#camFallbackUploadBtn");
+    if (fBtn) fBtn.onclick = () => q("#camFileInput").click();
+    feedbackEl.className = "cam-feedback err";
+    feedbackEl.textContent = "Camera error: " + (err.message || err);
+  }
+}
+
+$("#camScanBtn").onclick = () => openCameraScanner();
+$("#mainScanCamBtn").onclick = () => openCameraScanner();
+document.addEventListener("keydown", e => {
+  if (page === "scan" && modalCount === 0) {
+    if ((e.altKey && (e.key === "s" || e.key === "S")) || e.key === "F2") {
+      e.preventDefault();
+      openCameraScanner();
+    }
+  }
+});
+function showResult(r) {
+  const el = $("#result");
+  if (r.err) { el.className = "card result err"; el.innerHTML = `<div class="big">${esc(r.title)}</div><div class="sub">${esc(r.sub)}</div>`; return; }
+  const st = statusOf(r.art, r.after);
+  el.className = "card result " + (r.type === "IN" ? "ok-in" : "ok-out");
+  el.innerHTML = `<div class="big">${r.type === "IN" ? "＋" : "−"} ${fmtNum(r.qty)} × ${esc(r.art.designation)}</div>
+    <div class="sub mono">${esc(r.art.code)}</div>
+    <div class="meta">${r.art.shelf ? `<span>${r.type === "IN" ? "Put it on" : "Take it from"}</span><span class="shelf-pill">${esc(r.art.shelf)}</span>` : '<span class="sub">No shelf location set</span>'}
+      <span>Stock: ${fmtNum(r.before)} → <b>${fmtNum(r.after)}</b></span><span class="chip ${st}">${st}</span></div>`;
+}
+function renderScan() {
+  if (!lastResult && !$("#result").innerHTML) { $("#result").className = "card result"; $("#result").innerHTML = '<div class="big">Ready to scan</div><div class="sub">Scan an article. The quantity is added or removed straight away.</div>'; }
+  const rows = db.movements.slice(-10).reverse(); const by = new Map(db.articles.map(a => [a.code, a]));
+  $("#recent").innerHTML = rows.length ? `<table><thead><tr><th class="nosort">Date</th><th class="nosort"></th><th class="nosort">Code</th><th class="nosort">Designation</th><th class="nosort num">Qty</th></tr></thead><tbody>${
+    rows.map(m => `<tr><td>${fmtDate(m.date)}</td><td><span class="chip ${m.type}">${m.type}</span></td><td class="mono">${esc(m.code)}</td><td>${esc((by.get(m.code) || {}).designation || "")}</td><td class="num">${fmtNum(m.qty)}</td></tr>`).join("")}</tbody></table>` : '<div class="empty">No movement yet.</div>';
+  $("#undoBtn").disabled = !db.movements.length; renderNavFoot();
+}
+$("#undoBtn").onclick = async () => {
+  const m = db.movements[db.movements.length - 1]; if (!m) return;
+  const a = findArticle(m.code);
+  if (await confirmBox({ title: "Undo last movement?", message: `<p>${m.type} ${fmtNum(m.qty)} × <b>${esc(a ? a.designation : m.code)}</b> (${fmtDate(m.date)})</p>`, ok: "Undo", danger: true })) {
+    db.movements.pop(); save(); lastResult = null; $("#result").innerHTML = ""; renderScan(); toast("Last movement cancelled.");
+  }
+  focusScan();
+};
+
+/* paste a list */
+$("#pasteListBtn").onclick = () => {
+  const m = openModal(`<h2>Paste a list</h2><p class="sub" style="margin:0 0 8px">One line per article: <b>code</b> then <b>quantity</b> (separated by a tab, semicolon, comma or space). A line with only a code counts 1. You can paste straight from Excel.</p>
+    <div><b>Action: ${mode === "IN" ? "ADD stock" : "REMOVE stock"}</b> · Date: <b>${fmtDate(curDate())}</b></div>
+    <textarea id="plText" placeholder="6001234567890&#9;50&#10;ART-0003&#9;12"></textarea><div id="plInfo" class="list" hidden></div>
+    <div class="foot"><button class="btn" data-x="0">Cancel</button><button class="btn" id="plCheck">Check</button><button class="btn primary" id="plApply" disabled>Apply</button></div>`, "wide");
+  m.back.dataset.sticky = "1"; let plan = null;
+  const parse = () => {
+    const stock = new Map(); const ok = [], bad = [];
+    $("#plText", m.el).value.split(/\r?\n/).forEach((line, i) => {
+      line = line.trim(); if (!line) return;
+      const p = line.split(/[\t;]+|,(?=\s*[\d.]+\s*$)|\s+(?=[\d.,]+\s*$)/).map(s => s.trim()).filter(Boolean);
+      const code = p[0]; let qty = p.length > 1 ? parseFloat(p[p.length - 1].replace(",", ".")) : 1;
+      const art = findArticle(code);
+      if (!art && p.length === 1 && /\s/.test(line) && findArticle(line.split(/\s+/)[0])) return bad.push(`Line ${i + 1}: invalid quantity (${line.split(/\s+/)[0]})`);
+      if (!art) return bad.push(`Line ${i + 1}: unknown code ${code}`);
+      if (!(qty > 0)) return bad.push(`Line ${i + 1}: invalid quantity (${code})`);
+      if (!stock.has(art.code)) stock.set(art.code, stockOf(art.code));
+      if (mode === "OUT" && stock.get(art.code) - qty < 0) return bad.push(`Line ${i + 1}: not enough stock for ${art.code} (${fmtNum(stock.get(art.code))} left)`);
+      stock.set(art.code, stock.get(art.code) + (mode === "IN" ? qty : -qty)); ok.push({ code: art.code, qty });
+    });
+    return { ok, bad };
+  };
+  $("#plCheck", m.el).onclick = () => {
+    plan = parse(); const units = plan.ok.reduce((s, x) => s + x.qty, 0);
+    const box = $("#plInfo", m.el); box.hidden = false;
+    box.innerHTML = `<div><b>${plan.ok.length}</b> valid line(s), <b>${fmtNum(units)}</b> unit(s) to ${mode === "IN" ? "add" : "remove"}.</div>` + (plan.bad.length ? `<div style="color:var(--bad);margin-top:6px"><b>${plan.bad.length} line(s) will be skipped:</b><br>${plan.bad.map(esc).join("<br>")}</div>` : "");
+    $("#plApply", m.el).disabled = !plan.ok.length;
+  };
+  $("#plApply", m.el).onclick = () => {
+    if (!plan) return; const date = curDate(); plan.ok.forEach(x => addMovement(x.code, mode, x.qty, date)); save(); m.close();
+    toast(`${plan.ok.length} movement(s) recorded.`, "ok"); renderScan();
+  };
+  m.el.querySelector("[data-x]").onclick = m.close; $("#plText", m.el).focus();
+};
+
+/* ===================== ARTICLES page ===================== */
+let artSort = { key: "designation", dir: 1 }; const selected = new Set();
+function artRows() {
+  const q = $("#artSearch").value.trim().toLowerCase(), f = $("#artFilter").value, tot = allTotals();
+  let rows = db.articles.map(a => { const t = tot.get(a.code); return { ...a, inn: t.inn, out: t.out, stock: t.stock, status: statusOf(a, t.stock) }; });
+  if (q) rows = rows.filter(r => [r.code, r.designation, r.shelf, r.category].some(v => String(v || "").toLowerCase().includes(q)));
+  if (f) rows = rows.filter(r => r.status === f);
+  const k = artSort.key; rows.sort((a, b) => { const x = a[k], y = b[k]; return (typeof x === "number" && typeof y === "number" ? x - y : String(x ?? "").localeCompare(String(y ?? ""), undefined, { numeric: true, sensitivity: "base" })) * artSort.dir; });
+  return rows;
+}
+const ART_COLS = [["code", "Code"], ["designation", "Designation"], ["shelf", "Shelf"], ["category", "Category"], ["stock", "Stock", 1], ["min", "Min", 1], ["status", "Status"], ["added", "Added"]];
+function renderArticles() {
+  const rows = artRows(); const w = $("#artWrap");
+  if (!db.articles.length) { w.innerHTML = '<div class="empty">No article yet. Click “New article”, or scan an unknown code on the Scan page to create it, or import your Excel file in Data &amp; backup.</div>'; return; }
+  const allSel = rows.length && rows.every(r => selected.has(r.code));
+  w.innerHTML = `<table><thead><tr><th class="nosort"><input type="checkbox" id="selAll" ${allSel ? "checked" : ""} title="Select all shown"></th>${
+    ART_COLS.map(([k, l, n]) => `<th data-k="${k}" class="${n ? "num" : ""}">${l}${artSort.key === k ? (artSort.dir > 0 ? " ▲" : " ▼") : ""}</th>`).join("")}<th class="nosort"></th></tr></thead><tbody>${
+    rows.map(r => `<tr data-c="${esc(r.code)}"><td><input type="checkbox" class="sel" ${selected.has(r.code) ? "checked" : ""}></td><td class="mono">${esc(r.code)}</td><td class="wrap">${esc(r.designation)}</td><td>${esc(r.shelf)}</td><td>${esc(r.category)}</td><td class="num"><b>${fmtNum(r.stock)}</b></td><td class="num">${fmtNum(r.min)}</td><td><span class="chip ${r.status}">${r.status}</span></td><td>${fmtDate(r.added)}</td>
+      <td class="act"><button class="btn sm" data-a="bc">Barcode</button> <button class="btn sm" data-a="edit">Edit</button> <button class="btn sm danger" data-a="del">Delete</button></td></tr>`).join("")}</tbody></table>${rows.length ? "" : '<div class="empty">No article matches.</div>'}`;
+  $("#printLblBtn").textContent = selected.size ? `Print labels (${selected.size})` : "Print labels";
+}
+["input", "change"].forEach(ev => { $("#artSearch").addEventListener(ev, renderArticles); $("#artFilter").addEventListener(ev, renderArticles); });
+$("#artWrap").addEventListener("click", async e => {
+  const th = e.target.closest("th[data-k]");
+  if (th) { const k = th.dataset.k; artSort = { key: k, dir: artSort.key === k ? -artSort.dir : 1 }; return renderArticles(); }
+  if (e.target.id === "selAll") { const rows = artRows(); if (e.target.checked) rows.forEach(r => selected.add(r.code)); else rows.forEach(r => selected.delete(r.code)); return renderArticles(); }
+  const tr = e.target.closest("tr[data-c]"); if (!tr) return; const code = tr.dataset.c;
+  if (e.target.classList.contains("sel")) { e.target.checked ? selected.add(code) : selected.delete(code); $("#printLblBtn").textContent = selected.size ? `Print labels (${selected.size})` : "Print labels"; return; }
+  const act = e.target.closest("[data-a]"); if (!act) return; const a = db.articles.find(x => x.code === code);
+  if (act.dataset.a === "bc") barcodeDialog(a);
+  if (act.dataset.a === "edit") {
+    const r = await articleDialog(a, false); if (!r) return;
+    if (r.code !== a.code) db.movements.forEach(m => { if (m.code === a.code) m.code = r.code; });
+    Object.assign(a, r); save(); renderArticles(); toast("Article saved.", "ok");
+  }
+  if (act.dataset.a === "del") {
+    const n = db.movements.filter(m => m.code === code).length;
+    if (await confirmBox({ title: "Delete this article?", message: `<p><b>${esc(a.designation)}</b> (${esc(a.code)})${n ? `<br>Its <b>${n}</b> movement(s) will be deleted too.` : ""}</p>`, ok: "Delete", danger: true })) {
+      db.articles = db.articles.filter(x => x.code !== code); db.movements = db.movements.filter(m => m.code !== code); selected.delete(code); save(); renderArticles(); toast("Article deleted.");
+    }
+  }
+});
+$("#newArtBtn").onclick = async () => {
+  const r = await articleDialog({}, true); if (!r) return; db.articles.push(r); save(); renderArticles(); toast("Article created.", "ok");
+};
+function barcodeDialog(a) {
+  if (!c128ok(a.code)) return infoBox("Barcode not possible", `<p>The code <b>${esc(a.code)}</b> contains characters that cannot be encoded (accents, or more than 40 characters). Edit the code first.</p>`);
+  const m = openModal(`<h2>Barcode (Code 128)</h2><div class="bc-box">${barcodeSVG(a.code)}<div class="c">${esc(a.code)}</div><div class="n">${esc(a.designation)}</div>${a.shelf ? `<div class="n"><b>Shelf: ${esc(a.shelf)}</b></div>` : ""}</div>
+    <div class="foot"><button class="btn" data-x>Close</button><button class="btn" id="bcSvg">Save SVG</button><button class="btn" id="bcPrint">Print label</button><button class="btn primary" id="bcPng">Save PNG image</button></div>`);
+  m.el.querySelector("[data-x]").onclick = m.close;
+  const safe = a.code.replace(/[^\w.-]+/g, "_");
+  $("#bcPng", m.el).onclick = () => labelCanvas(a, 4).toBlob(b => { download(b, `barcode_${safe}.png`); toast("PNG saved in your Downloads folder.", "ok"); });
+  $("#bcSvg", m.el).onclick = () => download(new Blob([barcodeSVG(a.code).replace("<svg ", '<svg width="400" height="140" ')], { type: "image/svg+xml" }), `barcode_${safe}.svg`);
+  $("#bcPrint", m.el).onclick = () => { m.close(); printLabels([a]); };
+}
+$("#printLblBtn").onclick = () => {
+  const list = selected.size ? db.articles.filter(a => selected.has(a.code)) : artRows().map(r => db.articles.find(a => a.code === r.code));
+  if (!list.length) return toast("No article to print.", "error");
+  const bad = list.filter(a => !c128ok(a.code));
+  const sizes = { "50x25": "Small 50 × 25 mm", "70x35": "Medium 70 × 35 mm", "100x50": "Large 100 × 50 mm" };
+  const m = openModal(`<h2>Print labels</h2><p><b>${list.length}</b> label(s)${selected.size ? " (selected articles)" : " (all articles shown)"}.${bad.length ? ` <span style="color:var(--bad)">${bad.length} article(s) with a code that cannot be encoded will be skipped.</span>` : ""}</p>
+    <label class="lbl">Label size</label><select id="lblSize">${Object.entries(sizes).map(([k, v]) => `<option value="${k}" ${k === (db.settings.lblSize || "70x35") ? "selected" : ""}>${v}</option>`).join("")}</select>
+    <p class="sub">In the Windows print window, choose your printer (or “Save as PDF”) and set scale to 100%.</p>
+    <div class="foot"><button class="btn" data-x>Cancel</button><button class="btn primary" id="lblGo">Print</button></div>`);
+  m.el.querySelector("[data-x]").onclick = m.close;
+  $("#lblGo", m.el).onclick = () => { const s = $("#lblSize", m.el).value; db.settings.lblSize = s; save(); m.close(); printLabels(list.filter(a => c128ok(a.code)), s); };
+};
+function printLabels(list, size = db.settings.lblSize || "70x35") {
+  const [w, h] = size.split("x");
+  $("#printArea").innerHTML = list.map(a => `<div class="plbl" style="width:${w}mm;height:${h}mm"><div class="bc">${barcodeSVG(a.code)}</div><div class="pc">${esc(a.code)}</div><div class="pn">${esc(a.designation)}</div>${a.shelf ? `<div class="ps">Shelf: ${esc(a.shelf)}</div>` : ""}</div>`).join("");
+  setTimeout(() => { window.print(); }, 60);
+}
+window.addEventListener("afterprint", () => { $("#printArea").innerHTML = ""; });
+
+/* ===================== HISTORY page ===================== */
+function renderHistory() {
+  const q = $("#hisSearch").value.trim().toLowerCase(), t = $("#hisType").value, f = $("#hisFrom").value, to = $("#hisTo").value;
+  const by = new Map(db.articles.map(a => [a.code, a]));
+  let rows = db.movements.filter(m => (!t || m.type === t) && (!f || m.date >= f) && (!to || m.date <= to) &&
+    (!q || m.code.toLowerCase().includes(q) || String((by.get(m.code) || {}).designation || "").toLowerCase().includes(q)));
+  rows.sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+  const total = rows.length; rows = rows.slice(0, 500);
+  $("#hisWrap").innerHTML = total ? `<table><thead><tr><th class="nosort">Date</th><th class="nosort">Type</th><th class="nosort">Code</th><th class="nosort">Designation</th><th class="nosort">Shelf</th><th class="nosort num">Qty</th><th class="nosort"></th></tr></thead><tbody>${
+    rows.map(m => { const a = by.get(m.code) || {}; return `<tr data-id="${m.id}"><td>${fmtDate(m.date)}</td><td><span class="chip ${m.type}">${m.type}</span></td><td class="mono">${esc(m.code)}</td><td class="wrap">${esc(a.designation)}</td><td>${esc(a.shelf)}</td><td class="num">${fmtNum(m.qty)}</td><td class="act"><button class="btn sm danger">Delete</button></td></tr>`; }).join("")}</tbody></table>${total > 500 ? `<div class="empty">Showing the 500 most recent of ${total}. Use the filters to narrow down.</div>` : ""}` : '<div class="empty">No movement.</div>';
+}
+["input", "change"].forEach(ev => ["#hisSearch", "#hisType", "#hisFrom", "#hisTo"].forEach(s => $(s).addEventListener(ev, renderHistory)));
+$("#hisWrap").addEventListener("click", async e => {
+  const b = e.target.closest("button"); if (!b) return; const id = +e.target.closest("tr").dataset.id; const m = db.movements.find(x => x.id === id); if (!m) return;
+  const a = findArticle(m.code) || {};
+  if (await confirmBox({ title: "Delete this movement?", message: `<p>${m.type} ${fmtNum(m.qty)} × <b>${esc(a.designation || m.code)}</b> (${fmtDate(m.date)})<br>The stock will be recalculated.</p>`, ok: "Delete", danger: true })) {
+    db.movements = db.movements.filter(x => x.id !== id); save(); renderHistory(); toast("Movement deleted.");
+  }
+});
+
+/* ===================== ZIP / XLSX (no library) ===================== */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+function zipStore(files) { // files: [{name, data(string)}]
+  const enc = new TextEncoder(), parts = [], cd = []; let off = 0;
+  const dt = new Date(), dosT = (dt.getHours() << 11) | (dt.getMinutes() << 5) | (dt.getSeconds() >> 1), dosD = ((dt.getFullYear() - 1980) << 9) | ((dt.getMonth() + 1) << 5) | dt.getDate();
+  for (const f of files) {
+    const nm = enc.encode(f.name), d = enc.encode(f.data), crc = crc32(d);
+    const lh = new DataView(new ArrayBuffer(30)); lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, dosT, true); lh.setUint16(12, dosD, true); lh.setUint32(14, crc, true); lh.setUint32(18, d.length, true); lh.setUint32(22, d.length, true); lh.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(lh.buffer), nm, d);
+    const ch = new DataView(new ArrayBuffer(46)); ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true);
+    ch.setUint16(12, dosT, true); ch.setUint16(14, dosD, true); ch.setUint32(16, crc, true); ch.setUint32(20, d.length, true); ch.setUint32(24, d.length, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+    cd.push(new Uint8Array(ch.buffer), nm); off += 30 + nm.length + d.length;
+  }
+  const cdSize = cd.reduce((s, x) => s + x.length, 0); const eo = new DataView(new ArrayBuffer(22));
+  eo.setUint32(0, 0x06054b50, true); eo.setUint16(8, files.length, true); eo.setUint16(10, files.length, true); eo.setUint32(12, cdSize, true); eo.setUint32(16, off, true);
+  return new Blob([...parts, ...cd, new Uint8Array(eo.buffer)], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
+async function zipRead(buf) { // -> Map name -> Uint8Array
+  const u8 = new Uint8Array(buf), dv = new DataView(buf); let e = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error("Not a valid .xlsx file.");
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const out = new Map(), dec = new TextDecoder();
+  for (let i = 0; i < n; i++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) throw new Error("Corrupted .xlsx file.");
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), lo = dv.getUint32(p + 42, true);
+    const name = dec.decode(u8.subarray(p + 46, p + 46 + nl)); p += 46 + nl + el + cl;
+    const ds = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true); const raw = u8.subarray(ds, ds + csize);
+    if (method === 0) out.set(name, raw);
+    else if (method === 8) out.set(name, new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer()));
+  }
+  return out;
+}
+const xmlEsc = s => String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const colName = i => { let s = ""; i++; while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+function sheetXml(rows, widths, dateCols = []) { // rows[0] = header
+  const cols = widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join("");
+  const body = rows.map((r, ri) => `<row r="${ri + 1}"${ri === 0 ? ' ht="28" customHeight="1"' : ""}>${r.map((v, ci) => {
+    const ref = colName(ci) + (ri + 1); if (v === "" || v == null) return "";
+    if (ri === 0) return `<c r="${ref}" s="1" t="inlineStr"><is><t>${xmlEsc(v)}</t></is></c>`;
+    if (dateCols.includes(ci) && isIso(v)) return `<c r="${ref}" s="2"><v>${isoToSerial(v)}</v></c>`;
+    if (typeof v === "number") return `<c r="${ref}"><v>${v}</v></c>`;
+    return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+  }).join("")}</row>`).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${cols}</cols><sheetData>${body}</sheetData><autoFilter ref="A1:${colName(widths.length - 1)}${Math.max(rows.length, 1)}"/></worksheet>`;
+}
+function buildXlsx(sheets) { // [{name, rows, widths, dateCols}]
+  const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"', RNS = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const files = [
+    { name: "[Content_Types].xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>` },
+    { name: "_rels/.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name: "xl/workbook.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook ${NS} ${RNS}><sheets>${sheets.map((s, i) => `<sheet name="${xmlEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join("")}</sheets></workbook>` },
+    { name: "xl/_rels/workbook.xml.rels", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { name: "xl/styles.xml", data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet ${NS}><numFmts count="1"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F3864"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>` },
+    ...sheets.map((s, i) => ({ name: `xl/worksheets/sheet${i + 1}.xml`, data: sheetXml(s.rows, s.widths, s.dateCols || []) }))
+  ];
+  return zipStore(files);
+}
+async function readXlsx(buf) { // -> { sheetName: [[cell,...],...] }
+  const z = await zipRead(buf), dec = new TextDecoder(), dp = new DOMParser();
+  const get = n => z.has(n) ? dp.parseFromString(dec.decode(z.get(n)), "application/xml") : null;
+  const wb = get("xl/workbook.xml"), rels = get("xl/_rels/workbook.xml.rels"); if (!wb || !rels) throw new Error("Not a valid .xlsx file.");
+  const relMap = {}; for (const r of rels.getElementsByTagName("Relationship")) relMap[r.getAttribute("Id")] = r.getAttribute("Target");
+  const sst = []; const ss = get("xl/sharedStrings.xml");
+  if (ss) for (const si of ss.getElementsByTagName("si")) sst.push([...si.getElementsByTagName("t")].map(t => t.textContent).join(""));
+  const out = {};
+  for (const s of wb.getElementsByTagName("sheet")) {
+    const rid = s.getAttribute("r:id") || s.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships", "id");
+    let t = relMap[rid]; if (!t) continue; t = t.replace(/^\/?(xl\/)?/, "xl/");
+    const sx = get(t); if (!sx) continue; const rows = [];
+    for (const row of sx.getElementsByTagName("row")) {
+      const ri = parseInt(row.getAttribute("r")) - 1; const arr = rows[ri] = rows[ri] || [];
+      for (const c of row.getElementsByTagName("c")) {
+        const ref = c.getAttribute("r") || ""; const letters = ref.replace(/\d+/g, ""); let ci = 0; for (const ch of letters) ci = ci * 26 + (ch.charCodeAt(0) - 64); ci--;
+        const ty = c.getAttribute("t"); const v = c.getElementsByTagName("v")[0]; let val = "";
+        if (ty === "inlineStr") val = [...c.getElementsByTagName("t")].map(x => x.textContent).join("");
+        else if (v) { const tx = v.textContent; val = ty === "s" ? (sst[+tx] ?? "") : ty === "str" || ty === "e" ? tx : ty === "b" ? tx === "1" : (tx !== "" && !isNaN(tx) ? Number(tx) : tx); }
+        arr[ci] = val;
+      }
+    }
+    out[s.getAttribute("name")] = Array.from(rows, r => r ? Array.from(r, x => x === undefined ? "" : x) : []);
+  }
+  return out;
+}
+
+/* ===================== DATA page ===================== */
+function renderNavFoot() {
+  const el = $("#navFoot"), lb = db.settings.lastBackup; let txt, warn = false;
+  if (!lb) { txt = "No backup yet — save one in Data & backup"; warn = db.articles.length > 0; }
+  else { const days = Math.floor((Date.now() - new Date(lb + "T00:00:00").getTime()) / 86400000); txt = days <= 0 ? "Backup: today" : `Last backup: ${days} day(s) ago`; warn = days >= 7; }
+  if (!storageOK) { txt = "⚠ Data cannot be saved! Save a backup."; warn = true; }
+  el.textContent = txt; el.classList.toggle("warn", warn);
+}
+function renderData() {
+  const lb = db.settings.lastBackup; $("#bkpInfo").textContent = lb ? "Last backup: " + fmtDate(lb) : "No backup yet.";
+  $("#bkpInfo").style.color = "var(--muted)"; renderNavFoot();
+}
+$("#bkpBtn").onclick = () => {
+  download(new Blob([JSON.stringify({ app: "StockScanner", exported: new Date().toISOString(), data: db }, null, 1)], { type: "application/json" }), `StockScanner_backup_${today()}.json`);
+  db.settings.lastBackup = today(); save(); renderData(); toast("Backup saved in your Downloads folder.", "ok");
+};
+$("#rstBtn").onclick = () => $("#rstFile").click();
+$("#rstFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text()); const d = j.data || j;
+    if (!Array.isArray(d.articles) || !Array.isArray(d.movements)) throw new Error("This is not a Stock Scanner backup.");
+    if (!(await confirmBox({ title: "Restore this backup?", message: `<p>The file contains <b>${d.articles.length}</b> article(s) and <b>${d.movements.length}</b> movement(s).<br><b>All current data will be replaced.</b></p>`, ok: "Replace my data", danger: true }))) return;
+    d.settings = d.settings || {}; d.nextId = d.nextId || (d.movements.reduce((m, x) => Math.max(m, x.id || 0), 0) + 1); db = d; save(); selected.clear(); renderData(); toast("Backup restored.", "ok");
+  } catch (err) { infoBox("Restore failed", `<p>${esc(err.message)}</p>`); }
+};
+$("#eraseBtn").onclick = async () => {
+  if (!(await confirmBox({ title: "Erase all data?", message: "<p>All articles and movements will be deleted from this computer. This cannot be undone.</p>", ok: "Continue", danger: true }))) return;
+  const m = openModal(`<h2>Type ERASE to confirm</h2><input type="text" id="erTxt" autocomplete="off"><div class="foot"><button class="btn" data-x>Cancel</button><button class="btn danger" id="erGo" disabled>Erase everything</button></div>`);
+  m.el.querySelector("[data-x]").onclick = m.close; $("#erTxt", m.el).focus();
+  $("#erTxt", m.el).oninput = e => { $("#erGo", m.el).disabled = e.target.value.trim() !== "ERASE"; };
+  $("#erGo", m.el).onclick = () => { const s = db.settings; db = blank(); db.settings = { sound: s.sound, askQty: s.askQty }; save(); selected.clear(); m.close(); lastResult = null; $("#result").innerHTML = ""; renderData(); toast("All data erased."); };
+};
+$("#expXlsx").onclick = () => {
+  const tot = allTotals(), by = new Map(db.articles.map(a => [a.code, a]));
+  const A = [["Code (barcode / QR)", "Designation", "Shelf location", "Category", "Opening stock", "Min stock", "Date added", "Total IN", "Total OUT", "Current stock", "Status"]];
+  db.articles.forEach(a => { const t = tot.get(a.code); A.push([a.code, a.designation, a.shelf || "", a.category || "", a.opening || 0, a.min || 0, a.added || "", t.inn, t.out, t.stock, statusOf(a, t.stock)]); });
+  const M = [["Date", "Type", "Code", "Designation", "Qty", "Shelf location"]];
+  [...db.movements].sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id).forEach(m => { const a = by.get(m.code) || {}; M.push([m.date, m.type, m.code, a.designation || "", m.qty, a.shelf || ""]); });
+  download(buildXlsx([{ name: "Articles", rows: A, widths: [24, 38, 16, 18, 14, 12, 14, 11, 11, 14, 14], dateCols: [6] }, { name: "Movements", rows: M, widths: [14, 8, 24, 38, 10, 16], dateCols: [0] }]), `StockScanner_${today()}.xlsx`);
+  toast("Excel file saved in your Downloads folder.", "ok");
+};
+$("#impXlsx").onclick = () => $("#impXlsxFile").click();
+$("#impXlsxFile").onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try { await importXlsx(await readXlsx(await f.arrayBuffer())); } catch (err) { infoBox("Import failed", `<p>${esc(err.message || err)}</p>`); }
+};
+async function importXlsx(sheets) {
+  const norm = s => String(s ?? "").toLowerCase().replace(/\s+/g, " ").trim();
+  const find = (...names) => { const k = Object.keys(sheets).find(n => names.includes(norm(n))); return k ? sheets[k] : null; };
+  const col = (h, ...keys) => h.findIndex(x => keys.some(k => x.includes(k)));
+  const newArts = [], seen = new Set(db.articles.map(a => a.code)); let skippedArts = 0;
+  const A = find("articles", "article", "articles list");
+  if (A && A.length > 1) {
+    const h = A[0].map(norm), iC = col(h, "code"), iD = col(h, "designation", "description", "name"), iS = col(h, "shelf", "location", "position"), iK = col(h, "category"), iO = col(h, "opening"), iM = col(h, "min"), iA = col(h, "date added", "added");
+    if (iC < 0) throw new Error("The Articles sheet needs a “Code” column in its first row.");
+    for (const r of A.slice(1)) {
+      const code = String(r[iC] ?? "").trim(); if (!code) continue;
+      if (seen.has(code)) { skippedArts++; continue; } seen.add(code);
+      newArts.push({ code, designation: String(iD >= 0 ? r[iD] : "").trim() || code, shelf: iS >= 0 ? String(r[iS] ?? "").trim() : "", category: iK >= 0 ? String(r[iK] ?? "").trim() : "",
+        opening: iO >= 0 ? (parseFloat(r[iO]) || 0) : 0, min: iM >= 0 ? (parseFloat(r[iM]) || 0) : 0, added: (iA >= 0 && parseAnyDate(r[iA])) || today() });
+    }
+  }
+  const known = new Set([...db.articles.map(a => a.code), ...newArts.map(a => a.code)]); const newMov = []; let unknown = 0, bad = 0;
+  const readMov = (rows, fixedType) => {
+    if (!rows || rows.length < 2) return; const h = rows[0].map(norm);
+    const iC = col(h, "code"), iQ = col(h, "qty", "quantity"), iD = col(h, "date"), iT = col(h, "type"); if (iC < 0) return;
+    for (const r of rows.slice(1)) {
+      const code = String(r[iC] ?? "").trim(); if (!code) continue;
+      if (!known.has(code)) { unknown++; continue; }
+      let qty = iQ >= 0 && r[iQ] !== "" ? parseFloat(String(r[iQ]).replace(",", ".")) : 1; if (!(qty > 0)) { bad++; continue; }
+      const type = fixedType || (iT >= 0 && /out/i.test(String(r[iT])) ? "OUT" : "IN");
+      newMov.push({ code, type, qty: r3(qty), date: (iD >= 0 && parseAnyDate(r[iD])) || today() });
+    }
+  };
+  readMov(find("scan in"), "IN"); readMov(find("scan out"), "OUT"); readMov(find("movements", "history"), null);
+  if (!newArts.length && !newMov.length) throw new Error("Nothing to import. Expected sheets named Articles, SCAN IN, SCAN OUT or Movements.");
+  const m = openModal(`<h2>Import from Excel</h2><p>Found <b>${newArts.length}</b> new article(s)${skippedArts ? ` (<b>${skippedArts}</b> already in the database, ignored)` : ""} and <b>${newMov.length}</b> movement(s)${unknown ? `, <b>${unknown}</b> row(s) with an unknown code ignored` : ""}${bad ? `, <b>${bad}</b> row(s) with a bad quantity ignored` : ""}.</p>
+    <label class="chk"><input type="radio" name="imode" value="add" checked> Add to my current data</label>
+    <label class="chk"><input type="radio" name="imode" value="replace"> Replace all my current data</label>
+    <p class="sub">Tip: import the same file only once, otherwise the movements are counted twice.</p>
+    <div class="foot"><button class="btn" data-x>Cancel</button><button class="btn primary" id="impGo">Import</button></div>`);
+  m.el.querySelector("[data-x]").onclick = m.close;
+  $("#impGo", m.el).onclick = () => {
+    const rep = m.el.querySelector("input[name=imode]:checked").value === "replace";
+    if (rep) { const s = db.settings; db = blank(); db.settings = s; }
+    db.articles.push(...newArts); newMov.forEach(x => addMovement(x.code, x.type, x.qty, x.date)); save(); m.close(); renderData(); toast(`Imported ${newArts.length} article(s) and ${newMov.length} movement(s).`, "ok");
+  };
+}
+
+/* ===================== start ===================== */
+go("scan");
+setMode("IN");
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+  });
+}
+window.__app = { get db() { return db; }, c128bits, readXlsx, buildXlsx, importXlsx, openCameraScanner };
+</script>
+</body>
+</html>
